@@ -1,6 +1,7 @@
 Vagrant.configure("2") do |config|
   
   config.vm.box = "debian/bookworm64"
+  config.vm.box_version = "12.20240814.1"
 
   config.vm.define "pbeheytS" do |control|
     control.vm.hostname = "pbeheytS"
