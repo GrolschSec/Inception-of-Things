@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thelounge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thelounge
+  template:
+    metadata:
+      labels:
+        app: thelounge
+    spec:
+      initContainers:
+      - name: init-users
+        image: busybox
+        command: ['sh', '-c', 'sed "s/REPLACE_WITH_HASH/$(cat /secrets/password-hash)/g" /vagrant/users.json > /output/users.json']
+        volumeMounts:
+        - name: vagrant-volume
+          mountPath: /vagrant
+        - name: user-config
+          mountPath: /output
+        - name: secret-volume
+          mountPath: /secrets
+          readOnly: true
+      containers:
+      - name: thelounge
+        image: thelounge/thelounge:latest
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: user-config
+          mountPath: /var/opt/thelounge/users
+      volumes:
+      - name: user-config
+        emptyDir: {}
+      - name: vagrant-volume
+        hostPath:
+          path: /vagrant  # Path to the shared Vagrant directory
+      - name: secret-volume
+        secret:
+          secretName: thelounge-user-secret

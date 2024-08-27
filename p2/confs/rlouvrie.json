@@ -1,0 +1,32 @@
+{
+    "password": "SET_THE_HASH",
+    "log": true,
+    "networks": [
+            {
+                    "awayMessage": "",
+                    "nick": "rlouvrie42",
+                    "name": "Libera.Chat",
+                    "host": "irc.libera.chat",
+                    "port": 6697,
+                    "tls": true,
+                    "userDisconnected": false,
+                    "rejectUnauthorized": true,
+                    "password": "",
+                    "username": "rlouvrie42",
+                    "realname": "rlouvrie42",
+                    "leaveMessage": "",
+                    "sasl": "",
+                    "saslAccount": "",
+                    "saslPassword": "",
+                    "commands": [],
+                    "ignoreList": [],
+                    "channels": [
+                            {
+                                    "name": "#Inception-of-Things",
+                                    "muted": false,
+                                    "key": ""
+                            }
+                    ]
+            }
+    ]
+}
