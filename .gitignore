@@ -1,2 +1,3 @@
 */.vagrant/
 */confs/token
+*.env
