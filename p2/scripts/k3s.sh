@@ -11,16 +11,20 @@ python3 /scripts/sethash.py /irc/
 mkdir -p /irc-conf/ && cp /irc/*.json /irc-conf/ 
 
 umount /irc && rm -rf /irc
-
 umount /scripts && rm -rf /scripts
 
+# Apply the Ingress NGINX Controller manifest
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/cloud/deploy.yaml
 
-sleep 10
-
-kubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=6000s
+echo "Waiting for Ingress NGINX Controller to be ready..."
+while true; do
+    kubectl wait --namespace ingress-nginx \
+      --for=condition=ready pod \
+      --selector=app.kubernetes.io/component=controller \
+      --timeout=10s && break
+    echo "Ingress NGINX Controller is not ready yet, retrying in 10 seconds..."
+    sleep 10
+done
+echo "Ingress NGINX Controller is ready."
 
 kubectl apply -f /k3s/
