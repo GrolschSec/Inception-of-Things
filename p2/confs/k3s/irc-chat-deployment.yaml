@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: thelounge
+  name: irc-chat
 spec:
   replicas: 1
   selector:
@@ -35,7 +35,7 @@ spec:
           mountPath: /secrets-r
           readOnly: true
       containers:
-      - name: thelounge
+      - name: irc-chat
         image: thelounge/thelounge:latest
         ports:
         - containerPort: 9000
