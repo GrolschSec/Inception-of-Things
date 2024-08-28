@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thelounge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: irc-chat
+  template:
+    metadata:
+      labels:
+        app: irc-chat
+    spec:
+      initContainers:
+      - name: init-users
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |-
+            PASSWORD_HASH=$(cat /secrets-p/pbeheyt-pass | sed -e 's/[\/&]/\\&/g')
+            sed "s/SET_THE_HASH/${PASSWORD_HASH}/g" /irc-conf/pbeheyt.json > /output/pbeheyt.json
+            PASSWORD_HASH=$(cat /secrets-r/rlouvrie-pass | sed -e 's/[\/&]/\\&/g')
+            sed "s/SET_THE_HASH/${PASSWORD_HASH}/g" /irc-conf/rlouvrie.json > /output/rlouvrie.json
+        volumeMounts:
+        - name: irc-conf
+          mountPath: /irc-conf
+        - name: user-config
+          mountPath: /output
+        - name: secret-pbeheyt
+          mountPath: /secrets-p
+          readOnly: true
+        - name: secret-rlouvrie
+          mountPath: /secrets-r
+          readOnly: true
+      containers:
+      - name: thelounge
+        image: thelounge/thelounge:latest
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: user-config
+          mountPath: /var/opt/thelounge/users
+      volumes:
+      - name: user-config
+        emptyDir: {}
+      - name: irc-conf
+        hostPath:
+          path: /irc-conf/
+      - name: secret-pbeheyt
+        secret:
+          secretName: pbeheyt-pass
+      - name: secret-rlouvrie
+        secret:
+          secretName: rlouvrie-pass

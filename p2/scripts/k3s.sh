@@ -1,22 +1,17 @@
 #!/bin/bash
 
-if [ ! -n $PBEHEYT_PASS ]
-then
-    echo "PBEHEYT_PASS IS NOT SET !"
-    exit 1
-elif [ ! -n $RLOUVRIE_PASS ]
-then
-    echo "RLOUVRIE_PASS IS NOT SET !"
-    exit 1
-fi
+apt-get update \
+    && apt-get install -y curl python3-pip  \
+    && pip3 install --break-system-packages bcrypt kubernetes
 
-echo $PBEHEYT_PASS
-echo $RLOUVRIE_PASS
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-group k3s --flannel-iface eth1" sh -
 
-# sudo apt-get update \
-#     && sudo apt-get install -y curl python3-pip python3.11-venv \
-#     && pip3 install bcrypt
+python3 /scripts/sethash.py /irc/
 
-# curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-group k3s --flannel-iface eth1" sh -
+mkdir -p /irc-conf/ && cp /irc/*.json /irc-conf/ 
 
-# kubectl apply -f /vagrant/
+umount /irc && rm -rf /irc
+
+umount /scripts && rm -rf /scripts
+
+kubectl apply -f /k3s/
