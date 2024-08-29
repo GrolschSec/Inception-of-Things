@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-tetris
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: game-tetris
+  template:
+    metadata:
+      labels:
+        app: game-tetris
+    spec:
+      containers:
+      - name: game-tetris
+        image: uzyexe/tetris:latest
+        ports:
+        - containerPort: 80
