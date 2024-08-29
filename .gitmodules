@@ -1,0 +1,3 @@
+[submodule "p3/confs"]
+	path = p3/confs
+	url = git@github.com:GrolschSec/rlouvrie42-IoT.git
