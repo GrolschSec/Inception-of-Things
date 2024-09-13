@@ -164,10 +164,10 @@ fi
 
 sudo kubectl port-forward svc/gitlab-gitlab-shell -n gitlab 32022:32022 2>&1 >/dev/null &
 
-sudo kubectl port-forward svc/gitlab-webservice-default -n gitlab 80:8181 2>&1 >/dev/null &
+sudo kubectl port-forward svc/gitlab-webservice-default -n gitlab 8081:8181 2>&1 >/dev/null &
 
 clear
 
 success "gitlab successfully installed into k3d !\n
 Gitlab Credentials -> Username: root - Password: $GITLAB_PASSWORD\n
-Gitlab GUI available at address: http://gitlab.$DOMAIN:"
+Gitlab GUI available at address: http://gitlab.$DOMAIN:8081/"
