@@ -6,12 +6,10 @@ K3D_INS=$(command -v k3d)
 
 HELM_INS=$(command -v helm)
 
-REPO='https://github.com/GrolschSec/rlouvrie42-IoT.git'
-
 APP_NAME="playground-app"
 
 # Change that parameter to your local ip address
-MACHINE_IP="10.0.2.15"
+# MACHINE_IP="10.0.2.15"
 
 echo_color() {
   NC='\033[0m'
@@ -50,8 +48,9 @@ run_cmd() {
   local info_msg="$2"
   local success_msg="$3"
   local error_msg="$4"
-  local warning_msg="$5"
-  local exit_on_fail=${6:-1}
+  local use_sudo=${5:-0}
+  local warning_msg="$6"
+  local exit_on_fail=${7:-1}
 
   # Show the info msg if there is one
   if [ -n "$info_msg" ]; then
@@ -59,7 +58,12 @@ run_cmd() {
   fi
 
   # Run the command
-  eval "$command" > /dev/null 2>&1
+  if [ "$use_sudo" -eq 1 ]; then
+    command="sudo $command"
+    eval "$command" 2> /dev/null
+  else
+    eval "$command" > /dev/null 2>&1
+  fi
 
   if [ $? -eq 0 ]; then
     if [ -n "$success_msg" ]; then
@@ -79,17 +83,18 @@ run_cmd() {
 
 clear
 
-# Check if the script is runned as root
-if [ "$EUID" -ne 0 ]; then
-  error "this script must be run with sudo."
-  exit 1
-fi
+# # Check if the script is runned as root
+# if [ "$EUID" -ne 0 ]; then
+#   error "this script must be run with sudo."
+#   exit 1
+# fi
 
 run_cmd \
   "apt update" \
   "refreshing package information..." \
   "" \
-  "failed to refresh package information."
+  "failed to refresh package information." \
+  1
 
 DOCKER_INS=$(dpkg -l | grep docker.io)
 
@@ -101,13 +106,15 @@ if [ -z "$DOCKER_INS" ]; then
     "apt install -y docker.io" \
     "installing package docker.io..." \
     "successfully installed package docker.io." \
-    "failed to install package docker.io."
+    "failed to install package docker.io." \
+    1
 
   run_cmd \
     "usermod -aG docker $USER" \
     "adding current user to docker's group." \
     "" \
     "failed to add the current user to docker's group." \
+    1 \
     "your current user has just been added to docker's group, \
 you'll need to either restart your session or temporarily switch to the Docker group using the 'newgrp docker' command."
 fi
@@ -117,7 +124,8 @@ if [ -z "$KUBECTL_INS" ]; then
   run_cmd "apt install -y kubernetes-client" \
     "installing kubernetes-client..." \
     "successfully installed package kubernetes-client" \
-    "failed to install package kubernetes-client."
+    "failed to install package kubernetes-client." \
+    1
 fi
 
 # Install ArgoCD CLI if it is not installed
@@ -126,7 +134,8 @@ if [ -z "$ARGOCD_INS" ]; then
     "wget -O /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64" \
     "installing ArgoCD client..." \
     "successfully installed ArgoCD client." \
-    "failed to install ArgoCD client."
+    "failed to install ArgoCD client." \
+    1
   
   run_cmd \
     "chmod +x /usr/local/bin/argocd" \
@@ -141,7 +150,8 @@ if [ -z "$K3D_INS" ]; then
     "curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash" \
     "installing k3d..." \
     "successfully installed k3d." \
-    "failed to install k3d."
+    "failed to install k3d." \
+    1
 fi
 
 # Installing helm if not installed
@@ -150,22 +160,29 @@ if [ -z "$HELM_INS" ]; then
     "curl -fsSL  https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash " \
     "installing helm..." \
     "successfully installed helm." \
-    "failed to install helm."
+    "failed to install helm." \
+    1
 fi
 
-# # Creating a cluster
+# Creating a cluster
 run_cmd \
-  "k3d cluster create --port "80:80@loadbalancer" --port "443:443@loadbalancer"" \
+  "k3d cluster create" \
   "creating k3d cluster" \
   "" \
-  "failed to create cluster."
+  "failed to create cluster." \
+  0 \
+  "" \
+  0
 
 # Creating the namespaces
 run_cmd \
   "kubectl create namespace argocd && kubectl create namespace dev && kubectl create namespace gitlab" \
   "creating namespaces 'argocd', 'dev' and 'gitlab'..." \
   "" \
-  "failed to create namespaces 'argocd', 'dev' and 'gitlab'."
+  "failed to create namespaces 'argocd', 'dev' and 'gitlab'." \
+  0 \
+  "" \
+  0
 
 # Installing gitlab
 run_cmd \
@@ -180,28 +197,32 @@ run_cmd \
   "" \
   "failed to update helm repo."
 
-# sed -i 's/\$MACHINE_IP/10.0.2.15/g' <your-file.yaml>
-# sed -i 's/\$MACHINE_IP/10.0.2.15/g' <your-file.yaml>
-
 run_cmd \
   "helm install gitlab gitlab/gitlab \
 --namespace gitlab \
 -f https://gitlab.com/gitlab-org/charts/gitlab/raw/master/examples/values-minikube-minimum.yaml \
---set certmanager-issuer.email=gitlab@example.com \
---set global.hosts.domain=$MACHINE_IP.nip.io \
---set global.hosts.externalIP=$MACHINE_IP \
+--set global.hosts.domain=mygitlab.com \
+--set global.hosts.externalIP=0.0.0.0 \
+--set global.hosts.https=false \
 --set global.edition=ce \
 --timeout 600s" \
-  "installing gitlab in namespace gitlab..." \
+  "installing gitlab..." \
   "" \
-  "failed to install gitlab in k3d namespace gitlab."
+  "failed to install gitlab."
 
+# run_cmd \
+#   "while true; do kubectl wait --namespace gitlab --for=condition=ready pod --timeout=10s --all > /dev/null 2>&1 && break; sleep 2; done" \
+#   "waiting for gitlab pods to be ready..." \
+#   "gitlab pods ready." \
+#   "some gitlab pods failed during the init process."
+
+GITLAB_PASSWORD=$(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath="{.data.password}" | base64 --decode)
 
 # # # Installing argocd
 # run_cmd \
 #   "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml" \
 #   "installing ArgoCD in the 'argocd' namespace..." \
-#   "ArgoCD installed successfully." \
+#   "" \
 #   "failed to install ArgoCD."
 
 # while true; do
