@@ -183,14 +183,10 @@ done
 
 # Adding domain to /etc/hosts
 if grep -q "$HOST" /etc/hosts; then
-    info "$HOST is already in /etc/hosts"
+  info "$HOST is already in /etc/hosts"
 else
-    run_cmd \
-      "echo $HOST >> /etc/hosts" \
-      "adding domain to /etc/hosts" \
-      "" \
-      "failed to add domain to /etc/hosts" \
-      1
+  info "adding domain to /etc/hosts"
+  echo $HOST | sudo tee -a /etc/hosts
 fi
 
 # Port forward argocd
