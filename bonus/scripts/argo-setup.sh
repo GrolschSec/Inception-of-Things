@@ -2,7 +2,7 @@
 
 DOMAIN="gitlab-webservice-default.gitlab.svc.cluster.local:8181"
 
-REPO="pbeheyt42.iot.fr"
+REPO="pbeheyt42-IoT"
 
 USER="root"
 
