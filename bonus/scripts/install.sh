@@ -8,8 +8,11 @@ HELM_INS=$(command -v helm)
 
 APP_NAME="playground-app"
 
-# Change that parameter to your local ip address
-# MACHINE_IP="10.0.2.15"
+DOMAIN=iot.fr
+
+IP="127.0.0.1"
+
+HOST="$IP gitlab.$DOMAIN"
 
 echo_color() {
   NC='\033[0m'
@@ -83,77 +86,6 @@ run_cmd() {
 
 clear
 
-# # Check if the script is runned as root
-# if [ "$EUID" -ne 0 ]; then
-#   error "this script must be run with sudo."
-#   exit 1
-# fi
-
-run_cmd \
-  "apt update" \
-  "refreshing package information..." \
-  "" \
-  "failed to refresh package information." \
-  1
-
-DOCKER_INS=$(dpkg -l | grep docker.io)
-
-KUBECTL_INS=$(dpkg -l | grep kubernetes-client)
-
-# Install docker.io if it is not installed
-if [ -z "$DOCKER_INS" ]; then
-  run_cmd \
-    "apt install -y docker.io" \
-    "installing package docker.io..." \
-    "successfully installed package docker.io." \
-    "failed to install package docker.io." \
-    1
-
-  run_cmd \
-    "usermod -aG docker $USER" \
-    "adding current user to docker's group." \
-    "" \
-    "failed to add the current user to docker's group." \
-    1 \
-    "your current user has just been added to docker's group, \
-you'll need to either restart your session or temporarily switch to the Docker group using the 'newgrp docker' command."
-fi
-
-# Install kubernetes-client if it is not installed
-if [ -z "$KUBECTL_INS" ]; then
-  run_cmd "apt install -y kubernetes-client" \
-    "installing kubernetes-client..." \
-    "successfully installed package kubernetes-client" \
-    "failed to install package kubernetes-client." \
-    1
-fi
-
-# Install ArgoCD CLI if it is not installed
-if [ -z "$ARGOCD_INS" ]; then
-  run_cmd \
-    "wget -O /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64" \
-    "installing ArgoCD client..." \
-    "successfully installed ArgoCD client." \
-    "failed to install ArgoCD client." \
-    1
-  
-  run_cmd \
-    "chmod +x /usr/local/bin/argocd" \
-    "" \
-    "" \
-    "failed to set exec permission for ArgoCD client."
-fi
-
-# Installing k3d if it is not installed
-if [ -z "$K3D_INS" ]; then
-  run_cmd \
-    "curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash" \
-    "installing k3d..." \
-    "successfully installed k3d." \
-    "failed to install k3d." \
-    1
-fi
-
 # Installing helm if not installed
 if [ -z "$HELM_INS" ]; then
   run_cmd \
@@ -176,8 +108,8 @@ run_cmd \
 
 # Creating the namespaces
 run_cmd \
-  "kubectl create namespace argocd && kubectl create namespace dev && kubectl create namespace gitlab" \
-  "creating namespaces 'argocd', 'dev' and 'gitlab'..." \
+  "kubectl create namespace gitlab" \
+  "creating namespaces 'gitlab'..." \
   "" \
   "failed to create namespaces 'argocd', 'dev' and 'gitlab'." \
   0 \
@@ -201,7 +133,7 @@ run_cmd \
   "helm install gitlab gitlab/gitlab \
 --namespace gitlab \
 -f https://gitlab.com/gitlab-org/charts/gitlab/raw/master/examples/values-minikube-minimum.yaml \
---set global.hosts.domain=mygitlab.com \
+--set global.hosts.domain=$DOMAIN \
 --set global.hosts.externalIP=0.0.0.0 \
 --set global.hosts.https=false \
 --set global.edition=ce \
@@ -210,55 +142,32 @@ run_cmd \
   "" \
   "failed to install gitlab."
 
-# run_cmd \
-#   "while true; do kubectl wait --namespace gitlab --for=condition=ready pod --timeout=10s --all > /dev/null 2>&1 && break; sleep 2; done" \
-#   "waiting for gitlab pods to be ready..." \
-#   "gitlab pods ready." \
-#   "some gitlab pods failed during the init process."
+run_cmd \
+  "while true; do kubectl wait --namespace gitlab --for=condition=ready pod/gitlab-webservice-default --timeout=10s > /dev/null 2>&1 && break; sleep 2; done" \
+  "waiting for gitlab pods to be ready..." \
+  "gitlab pods ready." \
+  "some gitlab pods failed during the init process."
 
 GITLAB_PASSWORD=$(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath="{.data.password}" | base64 --decode)
 
-# # # Installing argocd
-# run_cmd \
-#   "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml" \
-#   "installing ArgoCD in the 'argocd' namespace..." \
-#   "" \
-#   "failed to install ArgoCD."
+# Adding domain to /etc/hosts
+if grep -q "$HOST" /etc/hosts; then
+    info "$HOST is already in /etc/hosts"
+else
+    run_cmd \
+      "echo $HOST >> /etc/hosts" \
+      "adding domain to /etc/hosts" \
+      "" \
+      "failed to add domain to /etc/hosts" \
+      1
+fi
 
-# while true; do
-#   kubectl wait --namespace argocd \
-#     --for=condition=ready pod \
-#     --timeout=10s --all > /dev/null 2>&1 && break
-#   info "waiting all ArgoCD pods to be ready..."
-#   sleep 10
-# done
+sudo kubectl port-forward svc/gitlab-gitlab-shell -n gitlab 32022:32022 2>&1 >/dev/null &
 
-# # Port forward argocd
-# run_cmd \
-#   "kubectl port-forward svc/argocd-server -n argocd 8080:443 & disown" \
-#   "starting port forwarding for ArgoCD server..." \
-#   "port forwarding for ArgoCD server started successfully." \
-#   "failed to start port forwarding for ArgoCD server."
+sudo kubectl port-forward svc/gitlab-webservice-default -n gitlab 80:8181 2>&1 >/dev/null &
 
-# ADMIN_PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+clear
 
-# run_cmd \
-#   "argocd login 127.0.0.1:8080 --username admin --password $ADMIN_PASS --insecure" \
-#   "logging in to ArgoCD..." \
-#   "logged in to ArgoCD successfully." \
-#   "failed to log in to ArgoCD. Please check the ArgoCD server status."
-
-# sleep 5
-
-# # ArgoCD application creation using run_cmd
-# run_cmd \
-#   "argocd app create $APP_NAME --repo $REPO --path ./ --dest-server https://kubernetes.default.svc --dest-namespace dev --sync-policy automated" \
-#   "creating ArgoCD application '$APP_NAME'..." \
-#   "ArgoCD application '$APP_NAME' created successfully." \
-#   "failed to create ArgoCD application '$APP_NAME'. Please check the repository URL and destination server."
-
-# clear
-
-# success "ArgoCD Successfullty Installed into k3d !\n
-# ArgoCD Credentials -> Username: admin - Password: $ADMIN_PASS\n
-# ArgoCD GUI available at address: https://localhost:8080/"
+success "gitlab successfully installed into k3d !\n
+Gitlab Credentials -> Username: root - Password: $GITLAB_PASSWORD\n
+Gitlab GUI available at address: http://gitlab.$DOMAIN:"

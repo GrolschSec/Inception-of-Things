@@ -8,6 +8,12 @@ REPO='https://github.com/GrolschSec/rlouvrie42-IoT.git'
 
 APP_NAME="playground-app"
 
+IP="127.0.0.1"
+
+DOMAIN="argocd.iot.fr"
+
+HOST="$IP $DOMAIN"
+
 echo_color() {
   NC='\033[0m'
 
@@ -45,8 +51,9 @@ run_cmd() {
   local info_msg="$2"
   local success_msg="$3"
   local error_msg="$4"
-  local warning_msg="$5"
-  local exit_on_fail=${6:-1}
+  local use_sudo=${5:-0}
+  local warning_msg="$6"
+  local exit_on_fail=${7:-1}
 
   # Show the info msg if there is one
   if [ -n "$info_msg" ]; then
@@ -54,7 +61,12 @@ run_cmd() {
   fi
 
   # Run the command
-  eval "$command" > /dev/null 2>&1
+  if [ "$use_sudo" -eq 1 ]; then
+    command="sudo $command"
+    eval "$command" 2> /dev/null
+  else
+    eval "$command" > /dev/null 2>&1
+  fi
 
   if [ $? -eq 0 ]; then
     if [ -n "$success_msg" ]; then
@@ -74,17 +86,12 @@ run_cmd() {
 
 clear
 
-# Check if the script is runned as root
-if [ "$EUID" -ne 0 ]; then
-  error "this script must be run with sudo."
-  exit 1
-fi
-
 run_cmd \
   "apt update" \
   "refreshing package information..." \
   "" \
-  "failed to refresh package information."
+  "failed to refresh package information." \
+  1
 
 DOCKER_INS=$(dpkg -l | grep docker.io)
 
@@ -96,13 +103,15 @@ if [ -z "$DOCKER_INS" ]; then
     "apt install -y docker.io" \
     "installing package docker.io..." \
     "successfully installed package docker.io." \
-    "failed to install package docker.io."
+    "failed to install package docker.io." \
+    1
 
   run_cmd \
     "usermod -aG docker $USER" \
     "adding current user to docker's group." \
     "" \
     "failed to add the current user to docker's group." \
+    1 \
     "your current user has just been added to docker's group, \
 you'll need to either restart your session or temporarily switch to the Docker group using the 'newgrp docker' command."
 fi
@@ -112,7 +121,8 @@ if [ -z "$KUBECTL_INS" ]; then
   run_cmd "apt install -y kubernetes-client" \
     "installing kubernetes-client..." \
     "successfully installed package kubernetes-client" \
-    "failed to install package kubernetes-client."
+    "failed to install package kubernetes-client." \
+    1
 fi
 
 # Install ArgoCD CLI if it is not installed
@@ -121,13 +131,15 @@ if [ -z "$ARGOCD_INS" ]; then
     "wget -O /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64" \
     "installing ArgoCD client..." \
     "successfully installed ArgoCD client." \
-    "failed to install ArgoCD client."
+    "failed to install ArgoCD client." \
+    1
   
   run_cmd \
     "chmod +x /usr/local/bin/argocd" \
     "" \
     "" \
-    "failed to set exec permission for ArgoCD client."
+    "failed to set exec permission for ArgoCD client." \
+    1
 fi
 
 # Installing k3d if it is not installed
@@ -136,7 +148,8 @@ if [ -z "$K3D_INS" ]; then
     "curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash" \
     "installing k3d..." \
     "successfully installed k3d." \
-    "failed to install k3d."
+    "failed to install k3d." \
+    1
 fi
 
 # # Creating a cluster
@@ -168,9 +181,21 @@ while true; do
   sleep 10
 done
 
+# Adding domain to /etc/hosts
+if grep -q "$HOST" /etc/hosts; then
+    info "$HOST is already in /etc/hosts"
+else
+    run_cmd \
+      "echo $HOST >> /etc/hosts" \
+      "adding domain to /etc/hosts" \
+      "" \
+      "failed to add domain to /etc/hosts" \
+      1
+fi
+
 # Port forward argocd
 run_cmd \
-  "kubectl port-forward svc/argocd-server -n argocd 8080:443 & disown" \
+  "kubectl port-forward svc/argocd-server -n argocd 8080:443 2>&1 >/dev/null &" \
   "starting port forwarding for ArgoCD server..." \
   "port forwarding for ArgoCD server started successfully." \
   "failed to start port forwarding for ArgoCD server."
@@ -196,4 +221,4 @@ clear
 
 success "ArgoCD Successfullty Installed into k3d !\n
 ArgoCD Credentials -> Username: admin - Password: $ADMIN_PASS\n
-ArgoCD GUI available at address: https://localhost:8080/"
+ArgoCD GUI available at address: https://$DOMAIN:8080/"
