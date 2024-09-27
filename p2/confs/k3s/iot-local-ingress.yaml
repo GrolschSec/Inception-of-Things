@@ -9,14 +9,9 @@ metadata:
 spec:
 
   ingressClassName: nginx
-  defaultBackend:
-    service:
-      name: irc-chat-service
-      port:
-        number: 9000
 
   rules:
-  - host: 2048.iot.local
+  - host: app1.com
     http:
       paths:
       - path: /
@@ -27,7 +22,7 @@ spec:
             port:
               number: 80
 
-  - host: tetris.iot.local
+  - host: app2.com
     http:
       paths:
       - path: /
@@ -38,8 +33,7 @@ spec:
             port:
               number: 80
 
-  - host: chat.iot.local
-    http:
+  - http:
       paths:
       - path: /
         pathType: Prefix
