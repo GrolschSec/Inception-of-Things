@@ -6,7 +6,7 @@ IP=$(ip a s | grep "eth1" | grep "inet" | sed 's/^ \+//' | cut -d " " -f 2 | cut
 
 if [ $IP == 110 ]
 then
-    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-group k3s --flannel-iface eth1" sh -
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-group k3s --write-kubeconfig-mode=644 --flannel-iface eth1" sh -
     sudo cp /var/lib/rancher/k3s/server/node-token /vagrant/token
 elif [ $IP == 111 ]
 then

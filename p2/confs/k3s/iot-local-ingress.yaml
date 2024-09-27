@@ -5,8 +5,16 @@ metadata:
   namespace: default
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+
 spec:
+
   ingressClassName: nginx
+  defaultBackend:
+    service:
+      name: irc-chat-service
+      port:
+        number: 9000
+
   rules:
   - host: 2048.iot.local
     http:
@@ -18,16 +26,7 @@ spec:
             name: game-2048-service
             port:
               number: 80
-  - host: chat.iot.local
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: irc-chat-service
-            port:
-              number: 9000
+
   - host: tetris.iot.local
     http:
       paths:
@@ -38,3 +37,14 @@ spec:
             name: game-tetris-service
             port:
               number: 80
+
+  - host: chat.iot.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: irc-chat-service
+            port:
+              number: 9000
