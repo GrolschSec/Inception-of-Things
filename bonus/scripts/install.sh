@@ -148,9 +148,17 @@ else
   echo $HOST | sudo tee -a /etc/hosts
 fi
 
-kubectl port-forward svc/gitlab-gitlab-shell -n gitlab 32022:32022 2>&1 >/dev/null &
+run_cmd \
+  "kubectl port-forward svc/gitlab-gitlab-shell -n gitlab 32022:32022 2>&1 >/dev/null &" \
+  "starting port forward for gitlab ssh..." \
+  "successfully started gitlab ssh port forward." \
+  "failed to start port forwarding for gitlab ssh."
 
-kubectl port-forward svc/gitlab-webservice-default -n gitlab 8081:8181 2>&1 >/dev/null &
+run_cmd \
+  "kubectl port-forward svc/gitlab-webservice-default -n gitlab 8081:8181 2>&1 >/dev/null &" \
+  "starting port forward for gitlab webserver..." \
+  "successfully started gitlab webserver port forward." \
+  "failed to start port forwarding for gitlab webserver."
 
 clear
 
